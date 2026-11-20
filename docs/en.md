@@ -1,61 +1,170 @@
-# Demo Devices Template
+# BACnet/IP
 
-This is the user documentation of the integration. Gladys re-hosts this file
-and shows a permanent **Documentation** link to it in the Configuration screen
-(in the user's language, with English as the fallback) — it is when
-configuring that the user needs it most. Keep the short onboarding hints in
-the `section` blocks of the manifest `config_schema`; put the long
-step-by-step (screenshots, troubleshooting…) here.
+Reads and writes the objects of a BACnet/IP device: air handling units, heat
+pumps and chillers, room and plant controllers, meters, BACnet gateways
+(Siemens Desigo, Daikin, Flexit, Distech, Honeywell...). Each object you
+declare becomes a feature of one Gladys device.
+
+**Developed without real building equipment**: tested against the bacnet-stack
+demo server. Feedback welcome, on the forum or in the issues of the repository.
 
 ## What you get
 
-Six demo devices show up after installation: a weather station (real data
-from Open-Meteo), a switch, a dimmable light, a smart plug with power
-metering, a motion sensor and a camera.
+- One Gladys device per BACnet device, one feature per declared object: analog
+  objects as numbers with their unit (temperature, humidity, pressure, CO2,
+  power, energy in kWh...), binary objects as on/off, multi-state objects as a
+  state number or as the text of the state ("Comfort", "Night").
+- The values read at the interval you choose, only the changes sent to Gladys.
+- Writing, off by default: on/off and temperature setpoints from the dashboard,
+  "Write a value" and "Release a priority" for any declared object, at the
+  BACnet priority you choose.
+- Scene triggers when the device is lost or back, and when an object goes into
+  alarm or fault.
+- A dashboard widget with the first values and the health of the link.
+
+Compared with the Flexit integration (`LM1LC3N7/gladys-flexit`), made for
+Flexit ventilation units with their objects already mapped, this one talks to
+any BACnet/IP device: you choose the objects.
+
+## Requirements
+
+- Gladys Assistant 5.1 or later.
+- A device that speaks BACnet/IP (UDP, port 47808 by default) with a fixed IP
+  address, reachable from the Gladys server. BACnet MS/TP (RS-485) devices need
+  a BACnet/IP router or gateway.
+- Its device instance, if the device does not give it (most do).
 
 ## Configuration
 
-1. Open the **Configuration** tab of the integration.
-2. Set the **latitude** and **longitude** the demo weather station should
-   observe (they default to Paris), and pick your temperature unit.
-   The **refresh interval** sets how often the weather station and the
-   plug's power are read: every 5 minutes by default, every minute at most.
-3. Save: the devices appear in the **Discovery** tab, ready to be added.
+Integrations → BACnet/IP → Configuration. Save after each step: the status at
+the top of the screen says whether the device answers.
 
-The **Prefer the local connection** toggle drives the demo plug: it reports
-the channel it actually uses as a badge (local or cloud), with an orange dot
-when it runs degraded (local refused, cloud fallback).
+### Device
+
+- **IP address**: the address of the device or of its BACnet/IP gateway. A port
+  other than 47808 can follow it (`192.168.1.50:47809`) or go in **UDP port**.
+- **Device instance**: leave it empty, the integration reads it from the device
+  (wildcard instance 4194303). Enter it when the device does not answer that
+  request, or behind a gateway that serves several devices.
+
+The integration sends its requests to this address only (unicast): Gladys runs
+it on a bridge network, where a Who-Is broadcast does not reach the building
+network. There is no automatic discovery.
+
+### Objects
+
+Press **List the objects**: it reads the object list of the device and gives
+the analog, binary and multi-state objects with their name, ready to copy. Then
+fill **Objects**, entries separated by semicolons:
+
+```
+Name: type:instance [kind] [write] [options]
+```
+
+```
+Supply air: ai:1; Extract air: ai:2; Fan: bo:1 switch; Mode: msv:1 text
+```
+
+- **Name** (optional, followed by a colon and a space): the name of the
+  feature. Without it, the objectName of the device is used.
+- **type:instance**: `analog-input:1` or `ai:1`, `analog-output` (`ao`),
+  `analog-value` (`av`), `binary-input` (`bi`), `binary-output` (`bo`),
+  `binary-value` (`bv`), `multi-state-input` (`msi`), `multi-state-output`
+  (`mso`), `multi-state-value` (`msv`). `AI1` and `OBJECT_ANALOG_INPUT:1` work
+  too.
+- **kind** (optional): by default it follows the BACnet units of the object
+  (°C → temperature, %RH → humidity, Pa → pressure, kWh → energy...). Kinds:
+  `temperature`, `humidity`, `pressure`, `co2`, `illuminance`, `power`,
+  `energy`, `voltage`, `current`, `volume`, `duration`, `value` (any number),
+  `setpoint` (writable temperature), `binary`, `switch` (writable on/off),
+  `state` (number of the state), `text` (text of the state).
+- **write**: the object may be written (outputs and values only: BACnet inputs
+  are not writable).
+- **Options**: `unit=` (°C, %, Pa, kPa, bar, ppm, W, kW, Wh, kWh, V, A, L, m3,
+  s, min, h...), `scale=` and `offset=` (value × scale + offset), `min=` and
+  `max=` (bounds of a write and of the gauge), `precision=` (decimals).
+
+Up to 100 objects. **Check the configuration** lists the mistakes entry by
+entry. Then add the device from the **Discovery** tab.
+
+### Reading interval
+
+Every 10 s, 30 s (default), 1 min or 5 min, with one ReadPropertyMultiple
+request per 8 objects; devices without that service are read property by
+property. Gladys accepts 300 values a minute: with many objects, the interval
+grows (100 objects: every 25 s at least).
+
+### Writing
+
+Turn on **Allow writing**, and declare `write` the objects Gladys may change.
+Writing a wrong object can stop or damage an installation: declare only what
+Gladys must change, and check with the installer.
+
+BACnet commands outputs and values through 16 priorities: 1 is the highest
+(life safety), 16 the lowest. The value with the highest priority wins; a value
+written at a priority stays until it is released. **Write priority** is 8
+(manual operator) by default; avoid 1 to 5. Releasing a priority (writing
+`null`) gives control back to the next priority, or to the default value of the
+object. Objects without a priority array (many analog and binary values) take
+the value directly and have nothing to release.
+
+From the dashboard, only `switch` and `setpoint` objects are controls (an
+on/off input and a target temperature, never a voice-controlled switch or
+thermostat). Every other declared object is written with the actions. A setpoint without `min=` and `max=` is held to 0–100 °C (32–212 °F).
 
 ## Actions
 
-- **Test the weather provider** — performs a live request to Open-Meteo and
-  shows the current temperature and humidity under the button.
-- **Identify a device** — pick one of your devices in the list and it will
-  signal itself (the demo light "blinks" in the logs).
+- **List the objects**: up to 60 usable objects with their name.
+- **Check the configuration**: whether the device answers, and the mistakes.
+- **Write a value**: an object (its name or `av:3`), a value (a number, 0 / 1 or
+  on / off, a state number or its text), an optional priority.
+- **Release a priority**: an object and an optional priority.
 
 ## Scenes
 
-The integration adds its own cards to the scene editor (Gladys 5.1 or
-later), under the **Integrations** category:
-
-- **Motion detected** (trigger) — starts the scene when a demo motion sensor
-  sees something move. Optionally pick the sensor and what moved (person,
-  animal); left empty, any detection matches. The following actions can
-  read what moved with `{{triggerEvent.data.target}}`.
-- **Identify a device** (action) — makes the chosen device signal itself.
-  It returns whether the device could signal itself, so the following
-  actions can depend on it.
+- Triggers: **The BACnet device is lost** (with the error), **The BACnet device
+  is back**, **A BACnet object goes into alarm** (statusFlags in alarm or fault,
+  once until it clears; the object name and the flag are variables).
+- Actions: **Write a BACnet object** and **Release a BACnet priority**, same
+  fields as the buttons. A refusal fails the action, not the scene.
+- Every feature also works with the usual Gladys device triggers (a
+  temperature above a threshold, a fan that stops).
 
 ## Dashboard
 
-Add the **Demo status** widget to a dashboard: it shows the live
-temperature of the weather station and the power of the office plug, the
-connection the plug currently uses (orange when degraded) and the observed
-location. Its **Identify the light** button makes the demo light signal
-itself.
+The **BACnet device** widget shows the first six values of the device and a
+status block: whether the device answers, the objects in alarm or fault, the
+time of the last value. The status block can be hidden in the widget settings.
+
+## Limits
+
+- No Who-Is discovery, no COV subscription: the values are polled.
+- One BACnet device per installation of the integration.
+- Only analog, binary and multi-state objects; no schedules, trends, calendars
+  or alarm acknowledgment.
+- No BBMD or foreign device registration: the device must be reachable in
+  unicast from the Gladys server.
+- The integration listens on UDP port 47808 inside its container. A device that
+  answers to port 47808 of the sender instead of the port the request came
+  from may not get through the address translation of Docker.
 
 ## Troubleshooting
 
-The integration logs everything it does: check the integration logs from the
-Gladys UI (or `docker logs` on the host) with `LOG_LEVEL=debug` for the full
-detail.
+- "Does not answer": check the address and the port, that BACnet/IP is on in the
+  device, and that no firewall blocks UDP 47808 between Gladys and the device.
+- "No such instance": empty **Device instance**, or enter the one shown by the
+  installer's tool.
+- An object "does not exist": compare with **List the objects**.
+- "The device refused the write (write-access-denied)": the object is read-only,
+  or out of service, or the device needs a password.
+- Full detail with the variable `LOG_LEVEL=debug` in the integration logs.
+
+## Credits
+
+- [@bacnet-js/client](https://github.com/bacnet-js/client) (MIT), the BACnet
+  stack in JavaScript maintained by Innovation-System, a fork of
+  `node-bacstack` by Fabio Huser.
+- [bacnet-stack](https://github.com/bacnet-stack/bacnet-stack) by Steve Karg,
+  whose demo server was used for the tests.
+- BACnet® is a registered trademark of ASHRAE. This integration is not
+  affiliated with ASHRAE nor with any device maker.

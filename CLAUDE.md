@@ -31,16 +31,22 @@ pushing.
 ## Architecture
 
 ```
-index.js                          SDK wiring only: handlers registered before connect()
-src/devices/index.js              registry of the device blueprints + dispatch helpers
-src/devices/<type>.js             one device type per file (buildDevice, onPoll, onSetValue...)
-src/scenes.js                     scene action handlers (manifest `scene_actions`)
-src/widgets.js                    dashboard widget handlers (manifest `widgets`)
-src/config.js                     DEFAULT_CONFIG (mirrors the manifest defaults) + normalization
-src/weather.js                    example driver (Open-Meteo)
-gladys-assistant-integration.json manifest: name, config_schema, actions, image...
-docs/en.md, docs/fr.md            user documentation, re-hosted by Gladys (mandatory)
-test/                             node --test, against the SDK's fake Gladys (integration-sdk/testing)
+index.js                          SDK wiring only: handlers registered in src/app.js, then connect()
+src/app.js                        every SDK handler (config, setValue, actions, scenes, widget)
+src/hub.js                        the device: polling timer, metadata, states, triggers, writes
+src/bacnet/client.js              the BACnet/IP link over @bacnet-js/client (RPM, fallback, errors)
+src/objects.js                    the "Objects" field: parsing, object types, feature keys
+src/kinds.js                      kinds (category/type/units) and BACnet engineering units
+src/values.js                     presentValue <-> Gladys state, write tags and checks
+src/actions.js                    list_objects, check_config, write_value, release_value
+src/widgets.js                    the "BACnet device" dashboard widget
+src/messages.js, src/i18n.js      every text, in en/fr/de/es
+src/config.js                     DEFAULT_CONFIG (mirrors the manifest defaults), address parsing
+src/store.js, src/issues.js       cache under /data, log-once of repeated failures
+scripts/live-check.mjs            run against a real device or bacserv (not in the tests)
+gladys-assistant-integration.json manifest
+docs/{en,fr,de,es}.md             user documentation, re-hosted by Gladys
+test/                             node --test, fake Gladys of the SDK + fake BACnet device
 .github/scripts/release.mjs       release helpers (manifest bump, changelog), tested in test/
 ```
 
@@ -259,3 +265,37 @@ long, et sur un « Sie »/« Ihr… » de politesse en allemand. Le store exige 
 - Docs `en`, `fr`, `de`, `es` avec les mêmes sections.
 - Chauffe, ouverture, sécurité : ne rien rendre pilotable « comme un thermostat » ou par un assistant
   vocal quand une erreur serait dangereuse (leçon d'OctoPrint).
+
+## BACnet/IP (propre à cette intégration)
+
+- Bibliothèque : `@bacnet-js/client` 3.x (MIT, fork maintenu de `node-bacstack`), module CommonJS : en ESM,
+  le constructeur est `pkg.default` (`import bacnet from '@bacnet-js/client'; bacnet.default`). Elle ouvre
+  un socket UDP sur le port 47808 du conteneur à la création du client ; écouter son événement `error`
+  (port déjà pris), sinon le processus tombe.
+- Erreurs de la bibliothèque : de simples `Error` dont le texte porte tout (`BacnetError - Class:2 - Code:40`,
+  `BacnetAbort - Reason:4`, `ERR_TIMEOUT`). Un **Reject** arrive aussi en `BacnetAbort`.
+  `linkError()` les range en codes. Dans une réponse ReadPropertyMultiple, l'erreur d'une propriété est
+  une valeur `{ type: 105, value: { errorClass, errorCode } }`, pas une exception.
+- `statusFlags` arrive en `{ value: [octet], bitsUsed: 4 }`, **bit 0 = in-alarm** (poids faible) :
+  vérifié sur bacserv en mettant `outOfService` à vrai (octet 8).
+- Instance inconnue : lire `objectIdentifier` de l'objet device **4194303** (joker de la norme) ;
+  bacserv répond. Un champ `number` vidé arrive en `""` ou `null` : `Number('')` vaut 0, une vraie
+  instance — `normalizeConfig` le traite (piège trouvé au test réel).
+- **bacserv** (bacnet-stack, `make BACNET_PORT=linux server`) : une instance de chaque type, numérotée à
+  partir de **1** ; unités `percent` (98) partout ; AO, BO, MSO et MSV ont un tableau de priorités,
+  **AV et BV n'en ont pas** (une écriture prend effet, un relâchement `NULL` ne fait rien et répond OK) :
+  le hub refuse donc le relâchement d'un objet sans `relinquishDefault`. Écrire un AI répond
+  `write-access-denied` (2/40).
+- Pas de Who-Is (réseau en pont du bac à sable) ni de COV : sondage par le minuteur du conteneur,
+  `should_poll: false`, cadence ≥ objets × 60 / 240 s. Deux cycles manqués d'affilée avant de déclarer
+  l'équipement perdu (un datagramme UDP perdu n'est pas une panne).
+- Clés figées : `external_id` de l'appareil = instance BACnet ; fonctionnalité = `ai-1`, `msv-3`… ;
+  actions `list_objects`, `check_config`, `write_value`, `release_value` ; déclencheurs
+  `device_disconnected`, `device_reconnected`, `object_alarm` ; widget `device_overview`.
+
+### Test réel
+
+Image du simulateur (hors dépôt) : `debian:bookworm-slim`, `git clone --depth 1
+https://github.com/bacnet-stack/bacnet-stack`, `make BACNET_PORT=linux BUILD=release server`, binaire
+`bin/bacserv`, lancé `bacserv 1234 Test-Device` sur un réseau pont `gladys-test-bacnet`. Puis
+`scripts/live-check.mjs <ip> "<objets>"` depuis l'image de l'intégration (voir README).
