@@ -10,6 +10,8 @@ the notes of the version's GitHub Release.
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-11-20
+
 ### Added
 
 - Read the objects of a BACnet/IP device (air handling units, heat pumps,
@@ -26,3 +28,6 @@ the notes of the version's GitHub Release.
 - Scene triggers: device lost, device back, object in alarm or fault.
 - "BACnet device" dashboard widget.
 - Documentation in English, French, German and Spanish.
+
+[Unreleased]: https://github.com/guim31/gladys-bacnet/compare/v1.0.0...HEAD
+[1.0.0]: https://github.com/guim31/gladys-bacnet/releases/tag/v1.0.0
