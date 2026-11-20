@@ -143,13 +143,74 @@ export function createBacnetLink({
         );
         results[id] = { values: answer.values.map((item) => item.value) };
       } catch (err) {
-        if (err.code !== 'bacnet') {
+        if (err.code === 'bacnet') {
+          results[id] = { error: { errorClass: err.errorClass, errorCode: err.errorCode } };
+        } else if (err.code === 'abort' || err.code === 'reject') {
+          // A property too long for an unsegmented answer (a long stateText):
+          // that property is missing, the object is still read.
+          results[id] = { error: { errorClass: ERROR_CLASS.SERVICES, errorCode: -1 } };
+        } else {
           throw err;
         }
-        results[id] = { error: { errorClass: err.errorClass, errorCode: err.errorCode } };
       }
     }
     return results;
+  }
+
+  /** One ReadPropertyMultiple request; the results by spec. */
+  async function rpm(chunk) {
+    const answer = await call((c) =>
+      c.readPropertyMultiple(
+        receiver,
+        chunk.map((spec) => ({
+          objectId: spec.objectId,
+          properties: spec.properties.map((id) => ({ id, index: ARRAY_ALL })),
+        })),
+      ),
+    );
+    return chunk.map((spec, index) => {
+      const result = answer.values?.[index];
+      const map = {};
+      for (const id of spec.properties) {
+        map[id] = propertyResult(result?.values?.find((entry) => entry.id === id));
+      }
+      return map;
+    });
+  }
+
+  /**
+   * A chunk of objects. An Error of class "services" means no
+   * ReadPropertyMultiple at all. An Abort (the library reports a Reject the
+   * same way) may only mean an answer too big for the device: the chunk is
+   * read object by object, and an object alone that still aborts is read
+   * property by property. When even a two-property request aborts, the
+   * device has no ReadPropertyMultiple: remembered.
+   */
+  async function readChunk(chunk) {
+    try {
+      return await rpm(chunk);
+    } catch (err) {
+      const noService = err.code === 'bacnet' && err.errorClass === ERROR_CLASS.SERVICES;
+      if (!noService && err.code !== 'abort' && err.code !== 'reject') {
+        throw err;
+      }
+      if (noService) {
+        rpmRefused = true;
+      } else if (chunk.length > 1) {
+        const out = [];
+        for (const spec of chunk) {
+          out.push(...(await readChunk([spec])));
+        }
+        return out;
+      } else if (chunk[0].properties.length <= 2) {
+        rpmRefused = true;
+      }
+    }
+    const out = [];
+    for (const spec of chunk) {
+      out.push(await readOneByOne(spec));
+    }
+    return out;
   }
 
   return {
@@ -179,45 +240,16 @@ export function createBacnetLink({
      *   one map per spec, by property id
      */
     async readObjects(specs) {
-      const out = [];
-      for (let start = 0; start < specs.length; start += CHUNK) {
-        const chunk = specs.slice(start, start + CHUNK);
-        if (!rpmRefused) {
-          try {
-            const answer = await call((c) =>
-              c.readPropertyMultiple(
-                receiver,
-                chunk.map((spec) => ({
-                  objectId: spec.objectId,
-                  properties: spec.properties.map((id) => ({ id, index: ARRAY_ALL })),
-                })),
-              ),
-            );
-            for (const [index, spec] of chunk.entries()) {
-              const result = answer.values?.[index];
-              const map = {};
-              for (const id of spec.properties) {
-                map[id] = propertyResult(result?.values?.find((entry) => entry.id === id));
-              }
-              out.push(map);
-            }
-            continue;
-          } catch (err) {
-            // A device without ReadPropertyMultiple rejects it, or answers
-            // "service request denied / unrecognized service".
-            const refused =
-              err.code === 'reject' ||
-              (err.code === 'bacnet' && err.errorClass === ERROR_CLASS.SERVICES) ||
-              err.code === 'abort';
-            if (!refused) {
-              throw err;
-            }
-            rpmRefused = true;
-          }
-        }
-        for (const spec of chunk) {
+      if (rpmRefused) {
+        const out = [];
+        for (const spec of specs) {
           out.push(await readOneByOne(spec));
         }
+        return out;
+      }
+      const out = [];
+      for (let start = 0; start < specs.length; start += CHUNK) {
+        out.push(...(await readChunk(specs.slice(start, start + CHUNK))));
       }
       return out;
     },

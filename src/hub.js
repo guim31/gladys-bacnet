@@ -84,11 +84,21 @@ export class BacnetHub {
     this.timer = null;
     this.cycle = Promise.resolve();
     this.cycling = false;
+    this.configuring = Promise.resolve();
+    // Objects whose alarm was already reported: kept across configurations,
+    // so a save or a restart does not fire the trigger again.
+    this.alarmed = new Set();
   }
 
   // --- Configuration ---------------------------------------------------------
 
-  async configure(config) {
+  /** Apply a configuration; two quick saves run one after the other. */
+  configure(config) {
+    this.configuring = this.configuring.then(() => this.#configure(config));
+    return this.configuring;
+  }
+
+  async #configure(config) {
     this.#stopLink();
     // A cycle of the old device still running must not land on the new one.
     await this.cycle;
@@ -96,12 +106,17 @@ export class BacnetHub {
     this.latest.clear();
     this.status = { connected: null, code: null, lastValueAt: null };
     this.failures = 0;
+    this.issues = createIssueLog(logger);
     this.metaReady = false;
     this.instance = null;
     this.ids = null;
     this.deviceInfo = {};
     const { objects, errors } = parseObjects(config.objects);
+    for (const object of objects) {
+      object.needsMeta = true;
+    }
     this.objects = objects;
+    this.cache = {};
     this.configErrors = errors;
 
     const address = config.badInstance
@@ -119,6 +134,7 @@ export class BacnetHub {
     const instance = config.device_instance ?? cache.instance ?? null;
     if (instance !== null && (config.device_instance === null || cache.instance === instance)) {
       this.deviceInfo = cache.device ?? {};
+      this.cache = { ...cache.objects };
       for (const object of objects) {
         if (cache.objects?.[object.key]) {
           this.#resolve(object, cache.objects[object.key]);
@@ -215,6 +231,8 @@ export class BacnetHub {
           return;
         }
         if (instance !== this.instance) {
+          // Another device than the cached one: forget its objects.
+          this.cache = {};
           this.objects.forEach((object) => this.#unresolve(object));
           this.#setInstance(instance);
         }
@@ -226,10 +244,10 @@ export class BacnetHub {
         return;
       }
       const deviceResult = results[0];
-      if (!this.metaReady) {
-        if (isUnknownObject(deviceResult[PROPERTY.OBJECT_NAME])) {
-          throw new LinkError('wrongInstance', 'Unknown device instance');
-        }
+      if (isUnknownObject(deviceResult[PROPERTY.OBJECT_NAME])) {
+        throw new LinkError('wrongInstance', 'Unknown device instance');
+      }
+      if (!this.metaReady || this.objects.some((object) => object.needsMeta)) {
         await this.#applyMeta(deviceResult, results.slice(1));
         if (stale()) {
           return;
@@ -256,7 +274,7 @@ export class BacnetHub {
     ];
     for (const object of this.objects) {
       const properties = [PROPERTY.PRESENT_VALUE, PROPERTY.STATUS_FLAGS];
-      if (!this.metaReady) {
+      if (object.needsMeta) {
         properties.push(PROPERTY.OBJECT_NAME);
         if (object.family === 'analog') {
           properties.push(PROPERTY.UNITS);
@@ -273,28 +291,44 @@ export class BacnetHub {
     return specs;
   }
 
+  /**
+   * Read the metadata of the objects that need it. An object that cannot be
+   * read keeps its cached metadata (a controller still booting answers errors
+   * for a while) and is read again on the next cycles; it is never dropped
+   * from the published device on an error.
+   */
   async #applyMeta(deviceResult, results) {
     const text = (result) => {
       const value = result?.values?.[0];
       return typeof value === 'string' && value.trim() !== '' ? value.trim() : undefined;
     };
-    this.deviceInfo = {
-      name: text(deviceResult[PROPERTY.OBJECT_NAME]),
-      vendor: text(deviceResult[PROPERTY.VENDOR_NAME]),
-      model: text(deviceResult[PROPERTY.MODEL_NAME]),
-    };
-    const cache = {};
+    let changed = !this.metaReady;
+    if (!this.metaReady) {
+      this.deviceInfo = {
+        name: text(deviceResult[PROPERTY.OBJECT_NAME]) ?? this.deviceInfo.name,
+        vendor: text(deviceResult[PROPERTY.VENDOR_NAME]) ?? this.deviceInfo.vendor,
+        model: text(deviceResult[PROPERTY.MODEL_NAME]) ?? this.deviceInfo.model,
+      };
+      this.metaReady = true;
+    }
     for (const [index, object] of this.objects.entries()) {
+      if (!object.needsMeta) {
+        continue;
+      }
       const result = results[index];
       const presentValue = result[PROPERTY.PRESENT_VALUE];
       if (presentValue?.error) {
-        this.#unresolve(object);
-        object.problem = isUnknownObject(presentValue)
-          ? { code: 'notFound', params: { object: object.text } }
-          : {
-              code: 'unreadable',
-              params: { object: object.text, error: bacnetErrorName(presentValue.error.errorCode) },
-            };
+        if (!object.resolved) {
+          object.problem = isUnknownObject(presentValue)
+            ? { code: 'notFound', params: { object: object.text } }
+            : {
+                code: 'unreadable',
+                params: {
+                  object: object.text,
+                  error: bacnetErrorName(presentValue.error.errorCode),
+                },
+              };
+        }
         continue;
       }
       const meta = {
@@ -310,14 +344,20 @@ export class BacnetHub {
       if (!Number.isInteger(meta.numberOfStates) || meta.numberOfStates < 1) {
         delete meta.numberOfStates;
       }
-      cache[object.key] = meta;
+      object.needsMeta = false;
+      if (JSON.stringify(this.cache[object.key]) !== JSON.stringify(meta) || !object.resolved) {
+        changed = true;
+      }
+      this.cache[object.key] = meta;
       this.#resolve(object, meta);
     }
-    this.metaReady = true;
+    if (!changed) {
+      return;
+    }
     await this.store.set(this.#cacheKey(), {
       instance: this.instance,
       device: this.deviceInfo,
-      objects: cache,
+      objects: this.cache,
     });
     await this.publishDevice();
   }
@@ -369,14 +409,14 @@ export class BacnetHub {
   #onFlags(object, flags) {
     object.flags = flags;
     const alarm = flags.inAlarm || flags.fault;
-    if (alarm && !object.alarmReported) {
-      object.alarmReported = true;
+    if (alarm && !this.alarmed.has(object.key)) {
+      this.alarmed.add(object.key);
       this.#fireTrigger(TRIGGERS.OBJECT_ALARM, {
         object_name: this.#nameOf(object),
         flag: flags.fault ? 'fault' : 'in-alarm',
       });
     } else if (!alarm) {
-      object.alarmReported = false;
+      this.alarmed.delete(object.key);
     }
   }
 
@@ -389,8 +429,8 @@ export class BacnetHub {
     this.status.connected = true;
     this.status.code = null;
     const where = `${this.address.host}:${this.address.port}`;
-    if (wasDown) {
-      logger.info(`BACnet device ${this.instance} at ${where} answers again`);
+    if (wasDown && this.issues.isFailing('link')) {
+      this.issues.ok('link', `BACnet device ${this.instance} at ${where} answers again`);
     } else {
       const count = this.objects.filter((object) => object.resolved).length;
       logger.info(`Connected to the BACnet device ${this.instance} at ${where} (${count} objects)`);
@@ -664,7 +704,15 @@ export class BacnetHub {
   async write(object, input, priorityText) {
     const name = this.#checkWritable(object);
     const priority = this.priorityOf(priorityText);
-    const { tag, value, shown } = toWrite(this.#valueObject(object), input);
+    const kind = KINDS[object.resolvedKind];
+    const target = this.#valueObject(object);
+    if (kind.writable) {
+      // A dashboard control or a scene "set value" is held to the bounds the
+      // feature was published with: the core never enforces them.
+      target.min ??= kind.min;
+      target.max ??= kind.max;
+    }
+    const { tag, value, shown } = toWrite(target, input);
     await this.#send(object, { type: tag, value }, priority);
     logger.info(`Wrote ${shown} to ${name} (${object.text}) at priority ${priority}`);
     return { name, shown, priority };

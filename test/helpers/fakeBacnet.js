@@ -22,6 +22,9 @@ export function createFakeDevice(fixture) {
     off: false,
     noWildcard: false,
     writeDenied: false,
+    // Objects ("type:instance") answering operational-problem, like a
+    // controller still booting.
+    failing: new Set(),
     writes: [],
     reads: 0,
     links: [],
@@ -51,9 +54,12 @@ export function createFakeDevice(fixture) {
           device.reads += 1;
           return specs.map((spec) => {
             const props = readable(spec.objectId);
+            const failing = device.failing.has(`${spec.objectId.type}:${spec.objectId.instance}`);
             const result = {};
             for (const id of spec.properties) {
-              if (!props) {
+              if (failing) {
+                result[id] = { error: { errorClass: 0, errorCode: 25 } };
+              } else if (!props) {
                 result[id] = { error: unknownObject };
               } else if (props[id] === undefined) {
                 result[id] = { error: unknownProperty };

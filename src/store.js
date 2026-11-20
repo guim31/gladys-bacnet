@@ -1,9 +1,9 @@
 // -----------------------------------------------------------------------------
 // Small persistence under /data (the only writable path of the container):
-// the type and access each variable had on the server, so that a restart
-// while the PLC is off still publishes the device with the right features.
-// Losing the file is harmless: the next connection rebuilds it. No secret is
-// stored here (the client certificate lives in /data/pki).
+// the instance, names, units and state texts read from the BACnet device, so
+// that a restart while the device is off still publishes the same device with
+// the right features. Losing the file is harmless: the next cycle rebuilds it.
+// No secret is stored here.
 // -----------------------------------------------------------------------------
 
 import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';

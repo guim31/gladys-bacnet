@@ -145,3 +145,52 @@ test('a write carries the tag, the value and the priority; a release is a NULL',
   assert.deepEqual(client.calls[1][4], [{ type: 0, value: null }]);
   assert.deepEqual(client.calls.at(-1), ['close']);
 });
+
+test('an answer too big for the device: the chunk is read object by object, RPM kept', async () => {
+  const client = fakeClient({
+    readPropertyMultiple: (specs) => {
+      if (specs.length > 1) {
+        throw new Error('BacnetAbort - Reason:4'); // segmentation not supported
+      }
+      return {
+        values: [
+          { objectId: specs[0].objectId, values: [{ id: 85, value: [{ type: 4, value: 1 }] }] },
+        ],
+      };
+    },
+    readProperty: () => {
+      throw new Error('should not be used');
+    },
+  });
+  const link = createBacnetLink({ host: '192.0.2.5', port: 47808, createClient: () => client });
+  const specs = [1, 2, 3].map((instance) => ({
+    objectId: { type: 0, instance },
+    properties: [85],
+  }));
+  assert.equal((await link.readObjects(specs)).length, 3);
+  await link.readObjects(specs);
+  const sizes = client.calls
+    .filter(([name]) => name === 'readPropertyMultiple')
+    .map(([, , chunk]) => chunk.length);
+  assert.deepEqual(sizes, [3, 1, 1, 1, 3, 1, 1, 1]);
+});
+
+test('a property too long for one answer is missing, the object is still read', async () => {
+  const client = fakeClient({
+    readPropertyMultiple: () => {
+      throw new Error('BacnetAbort - Reason:4');
+    },
+    readProperty: (objectId, propertyId) => {
+      if (propertyId === 110) {
+        throw new Error('BacnetAbort - Reason:4');
+      }
+      return { values: [{ type: 2, value: 2 }] };
+    },
+  });
+  const link = createBacnetLink({ host: '192.0.2.5', port: 47808, createClient: () => client });
+  const [result] = await link.readObjects([
+    { objectId: { type: 19, instance: 1 }, properties: [85, 111, 77, 74, 110] },
+  ]);
+  assert.deepEqual(result[85], { values: [2] });
+  assert.ok(result[110].error);
+});

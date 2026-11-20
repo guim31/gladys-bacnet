@@ -350,3 +350,117 @@ test('the values of a lost device are not re-sent', async () => {
     await world.stop();
   }
 });
+
+test('an object unreadable for a while keeps its feature, and is read again', async () => {
+  const store = new MemoryStore();
+  const first = await createWorld({ fixture: AHU, config: { objects: AHU_OBJECTS }, store });
+  const published = first.device;
+  await first.stop();
+  // Restart while the controller boots: av:10 answers errors for a while.
+  const world = await createWorld({
+    fixture: AHU,
+    config: { objects: AHU_OBJECTS },
+    store,
+    before: (device) => device.failing.add('2:10'),
+  });
+  try {
+    assert.deepEqual(world.device, published, 'the feature is still published');
+    world.bacnet.failing.clear();
+    world.bacnet.set('2:10', 85, 22);
+    await world.poll();
+    assert.deepEqual(world.device, published);
+    assert.equal(world.state('Setpoint'), 22);
+    assert.ok((await store.get('192.0.2.10:47808')).objects['av-10'], 'still cached');
+  } finally {
+    await world.stop();
+  }
+});
+
+test('an object unreadable at the very first start appears once it answers', async () => {
+  const world = await createWorld({
+    fixture: AHU,
+    config: { objects: AHU_OBJECTS },
+    before: (device) => device.failing.add('2:10'),
+  });
+  try {
+    assert.equal(world.device.features.length, 11);
+    assert.match(world.hub.problems()[0].en, /av:10 cannot be read \(operational-problem\)/);
+    world.bacnet.failing.clear();
+    await world.poll();
+    assert.equal(world.fake.discoveredDevices.at(-1).features.length, 12);
+    assert.deepEqual(world.hub.problems(), []);
+  } finally {
+    await world.stop();
+  }
+});
+
+test('two quick saves leave one link open, the last one', async () => {
+  const world = await createWorld({ fixture: AHU, config: { objects: AHU_OBJECTS } });
+  try {
+    world.bacnet.off = true;
+    await Promise.all([
+      world.fake.configUpdated({ address: ADDRESS, objects: 'ai:1' }),
+      world.fake.configUpdated({ address: ADDRESS, objects: 'ai:2' }),
+    ]);
+    await world.settle();
+    const open = world.bacnet.links.filter((link) => !link.closed);
+    assert.equal(open.length, 1);
+    assert.equal(open[0], world.hub.link);
+    assert.equal(world.hub.objects[0].key, 'ai-2');
+  } finally {
+    await world.stop();
+  }
+});
+
+test('every loss of the device is one warning, every return one info line', async (t) => {
+  const world = await createWorld({ fixture: AHU, config: { objects: AHU_OBJECTS } });
+  try {
+    const lines = await captureLogs(t, async () => {
+      for (let round = 0; round < 2; round += 1) {
+        world.bacnet.off = true;
+        await world.poll();
+        await world.poll();
+        await world.poll();
+        world.bacnet.off = false;
+        await world.poll();
+      }
+    });
+    assert.equal(lines.filter((line) => line.includes('[WARN]')).length, 2, lines.join('\n'));
+    assert.equal(lines.filter((line) => line.includes('answers again')).length, 2);
+  } finally {
+    await world.stop();
+  }
+});
+
+test('a dashboard setpoint is held to the published bounds when none is declared', async () => {
+  const world = await createWorld({
+    fixture: AHU,
+    config: { objects: AHU_OBJECTS, allow_write: true },
+  });
+  try {
+    const setpoint = world.feature('Setpoint');
+    await world.fake.setValue(world.device, setpoint, 500);
+    assert.equal(world.bacnet.writes.length, 0, '500 °C never reaches the device');
+    await world.fake.setValue(world.device, setpoint, 21);
+    assert.equal(world.bacnet.writes.length, 1);
+  } finally {
+    await world.stop();
+  }
+});
+
+test('an object already in alarm does not fire the trigger again after a save', async () => {
+  const world = await createWorld({
+    fixture: AHU,
+    config: { objects: AHU_OBJECTS },
+    before: (device) => device.set('3:5', 111, flagsOf(1)),
+  });
+  try {
+    await world.fake.configUpdated({ address: ADDRESS, objects: AHU_OBJECTS, language: 'en' });
+    await world.settle();
+    await world.poll();
+    const alarms = world.fake.sceneEvents.filter((e) => e.key === 'object_alarm');
+    assert.equal(alarms.length, 1);
+  } finally {
+    await world.stop();
+  }
+});
