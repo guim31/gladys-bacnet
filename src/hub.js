@@ -85,8 +85,9 @@ export class BacnetHub {
     this.cycle = Promise.resolve();
     this.cycling = false;
     this.configuring = Promise.resolve();
-    // Objects whose alarm was already reported: kept across configurations,
-    // so a save or a restart does not fire the trigger again.
+    // Objects whose alarm was already reported: kept across configurations of
+    // the same device, so a save does not fire the trigger again (in memory:
+    // a restart of the container reports an ongoing alarm once more).
     this.alarmed = new Set();
   }
 
