@@ -30,6 +30,20 @@ Gladys before reporting a problem.
 
 In scope: the code of this repository and the Docker image it publishes.
 
+What the integration keeps and sends:
+
+- `/data/bacnet-devices.json`: the instance, names, units and state texts read
+  from the device, so that it is still published when the device is off. No
+  secret: BACnet/IP has no password in this integration.
+- Network: UDP datagrams to the address and port typed by the user (unicast
+  only, no broadcast), from UDP port 47808 inside the container. No cloud
+  service, no inbound port published on the host.
+- BACnet/IP has no authentication nor encryption: anyone on the building
+  network can read and write the same objects. Keep that network apart.
+- Writes reach the device only when the user turned on "Allow writing", only
+  for the objects declared `write`, at the configured priority.
+
 Out of scope: Gladys Assistant itself (see its
 [security policy](https://github.com/GladysAssistant/Gladys/security/policy)),
-and the third-party services and devices the integration talks to.
+the BACnet devices the integration talks to, and the @bacnet-js/client library
+(report to [its project](https://github.com/bacnet-js/client)).

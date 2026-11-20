@@ -1,177 +1,879 @@
 {
   "manifest_version": 1,
   "type": "device",
-  "name": "Demo Devices Template",
+  "name": "BACnet/IP",
   "description": {
-    "en": "Starter template showing sensors, a switch, a dimmable light and a smart plug.",
-    "fr": "Template de démarrage : capteurs, interrupteur, lampe variable et prise connectée."
+    "en": "Read and write the objects of a BACnet/IP device: air handling units, heat pumps, controllers.",
+    "fr": "Lire et écrire les objets d'un équipement BACnet/IP : CTA, PAC, régulateurs, compteurs.",
+    "de": "Objekte eines BACnet/IP-Geräts lesen und schreiben: Lüftungsanlagen, Wärmepumpen, Regler, Zähler.",
+    "es": "Leer y escribir los objetos de un equipo BACnet/IP: climatizadoras, bombas de calor, reguladores."
   },
   "version": "1.0.0",
-  "docker_image": "ghcr.io/gladysassistant/integration-template-js:1.0.0",
+  "docker_image": "ghcr.io/guim31/gladys-bacnet:1.0.0",
   "gladys_version": ">=5.1.0",
-  "cover_image": "https://raw.githubusercontent.com/GladysAssistant/integration-template-js/master/cover.png",
-  "categories": ["lighting", "security", "environment"],
-  "transports": ["local", "cloud"],
+  "cover_image": "https://raw.githubusercontent.com/guim31/gladys-bacnet/main/cover.png",
+  "categories": ["protocols", "climate"],
+  "transports": ["local"],
   "config_schema": [
     {
       "key": "intro",
       "type": "section",
-      "label": { "en": "Getting started", "fr": "Pour commencer" },
+      "label": {
+        "en": "Getting started",
+        "fr": "Pour commencer",
+        "de": "Erste Schritte",
+        "es": "Para empezar"
+      },
       "description": {
-        "en": "The demo weather station reads real data from the free Open-Meteo API: pick the coordinates to observe. No account, no API key.",
-        "fr": "La station météo de démonstration lit de vraies données via l'API gratuite Open-Meteo : choisissez les coordonnées à observer. Pas de compte, pas de clé d'API."
+        "en": "Enter the IP address of the BACnet/IP device, save, then use \"List the objects\" to find their identifiers. Declare the objects you want in the Objects field, save again, and add the device from the Discovery tab: each object becomes a feature, read at the chosen interval.",
+        "fr": "Saisissez l'adresse IP de l'équipement BACnet/IP, enregistrez, puis utilisez « Lister les objets » pour trouver leurs identifiants. Déclarez les objets voulus dans le champ Objets, enregistrez de nouveau et ajoutez l'équipement depuis l'onglet Découverte : chaque objet devient une fonctionnalité, lue à l'intervalle choisi.",
+        "de": "Gib die IP-Adresse des BACnet/IP-Geräts ein, speichere und nutze dann „Objekte auflisten“, um ihre Kennungen zu finden. Deklariere die gewünschten Objekte im Feld Objekte, speichere erneut und füge das Gerät im Tab „Entdecken“ hinzu: Jedes Objekt wird eine Funktion, im gewählten Intervall gelesen.",
+        "es": "Introduzca la dirección IP del equipo BACnet/IP, guarde y luego utilice «Listar los objetos» para encontrar sus identificadores. Declare los objetos deseados en el campo Objetos, guarde de nuevo y añada el equipo desde la pestaña Descubrimiento: cada objeto se convierte en una función, leída al intervalo elegido."
       },
       "links": [
         {
-          "url": "https://open-meteo.com/en/docs",
-          "label": { "en": "Open-Meteo documentation", "fr": "Documentation Open-Meteo" }
+          "url": "https://github.com/guim31/gladys-bacnet/blob/main/docs/en.md#objects",
+          "label": {
+            "en": "Objects syntax",
+            "fr": "Syntaxe des objets",
+            "de": "Syntax der Objekte",
+            "es": "Sintaxis de los objetos"
+          }
         }
       ]
     },
     {
-      "key": "latitude",
-      "type": "number",
-      "label": { "en": "Latitude", "fr": "Latitude" },
-      "description": {
-        "en": "Latitude used for the demo weather sensor.",
-        "fr": "Latitude utilisée par le capteur météo de démonstration."
-      },
-      "placeholder": { "en": "e.g. 48.8566", "fr": "ex. 48.8566" },
-      "required": true,
-      "default": 48.8566,
-      "min": -90,
-      "max": 90
-    },
-    {
-      "key": "longitude",
-      "type": "number",
-      "label": { "en": "Longitude", "fr": "Longitude" },
-      "description": {
-        "en": "Longitude used for the demo weather sensor.",
-        "fr": "Longitude utilisée par le capteur météo de démonstration."
-      },
-      "placeholder": { "en": "e.g. 2.3522", "fr": "ex. 2.3522" },
-      "required": true,
-      "default": 2.3522,
-      "min": -180,
-      "max": 180
-    },
-    {
-      "key": "unit",
+      "key": "language",
       "type": "select",
-      "label": { "en": "Temperature unit", "fr": "Unité de température" },
+      "label": {
+        "en": "Language of the messages",
+        "fr": "Langue des messages",
+        "de": "Sprache der Meldungen",
+        "es": "Idioma de los mensajes"
+      },
+      "description": {
+        "en": "Used for the texts given to the scenes.",
+        "fr": "Utilisée pour les textes transmis aux scènes.",
+        "de": "Wird für die an Szenen übergebenen Texte verwendet.",
+        "es": "Se utiliza para los textos transmitidos a las escenas."
+      },
       "required": false,
-      "default": "celsius",
+      "default": "fr",
       "options": [
-        { "value": "celsius", "label": { "en": "Celsius", "fr": "Celsius" } },
-        { "value": "fahrenheit", "label": { "en": "Fahrenheit", "fr": "Fahrenheit" } }
+        {
+          "value": "en",
+          "label": {
+            "en": "English",
+            "fr": "Anglais",
+            "de": "Englisch",
+            "es": "Inglés"
+          }
+        },
+        {
+          "value": "fr",
+          "label": {
+            "en": "French",
+            "fr": "Français",
+            "de": "Französisch",
+            "es": "Francés"
+          }
+        },
+        {
+          "value": "de",
+          "label": {
+            "en": "German",
+            "fr": "Allemand",
+            "de": "Deutsch",
+            "es": "Alemán"
+          }
+        },
+        {
+          "value": "es",
+          "label": {
+            "en": "Spanish",
+            "fr": "Espagnol",
+            "de": "Spanisch",
+            "es": "Español"
+          }
+        }
       ]
     },
     {
-      "key": "poll_frequency",
-      "type": "number",
-      "label": { "en": "Refresh interval (s)", "fr": "Intervalle de rafraîchissement (s)" },
+      "key": "device_section",
+      "type": "section",
+      "label": {
+        "en": "Device",
+        "fr": "Équipement",
+        "de": "Gerät",
+        "es": "Equipo"
+      },
       "description": {
-        "en": "How often sensors are polled, in seconds (one minute minimum).",
-        "fr": "Fréquence d'interrogation des capteurs, en secondes (une minute minimum)."
+        "en": "Give the device a fixed IP address: Gladys reaches it in unicast, a Who-Is broadcast does not leave the integration's network.",
+        "fr": "Donnez une adresse IP fixe à l'équipement : Gladys le joint en unicast, un Who-Is en broadcast ne sort pas du réseau de l'intégration.",
+        "de": "Gib dem Gerät eine feste IP-Adresse: Gladys erreicht es per Unicast, ein Who-Is-Broadcast verlässt das Netzwerk der Integration nicht.",
+        "es": "Asigne una dirección IP fija al equipo: Gladys lo alcanza en unicast, un Who-Is en broadcast no sale de la red de la integración."
+      }
+    },
+    {
+      "key": "address",
+      "type": "string",
+      "label": {
+        "en": "IP address",
+        "fr": "Adresse IP",
+        "de": "IP-Adresse",
+        "es": "Dirección IP"
+      },
+      "description": {
+        "en": "The IP address of the BACnet/IP device (or of its BACnet/IP gateway).",
+        "fr": "L'adresse IP de l'équipement BACnet/IP (ou de sa passerelle BACnet/IP).",
+        "de": "Die IP-Adresse des BACnet/IP-Geräts (oder seines BACnet/IP-Gateways).",
+        "es": "La dirección IP del equipo BACnet/IP (o de su pasarela BACnet/IP)."
+      },
+      "placeholder": {
+        "en": "e.g. 192.168.1.50",
+        "fr": "ex. 192.168.1.50",
+        "de": "z. B. 192.168.1.50",
+        "es": "p. ej. 192.168.1.50"
+      },
+      "required": false
+    },
+    {
+      "key": "port",
+      "type": "number",
+      "label": {
+        "en": "UDP port",
+        "fr": "Port UDP",
+        "de": "UDP-Port",
+        "es": "Puerto UDP"
+      },
+      "description": {
+        "en": "47808 (0xBAC0) on almost every device.",
+        "fr": "47808 (0xBAC0) sur presque tous les équipements.",
+        "de": "47808 (0xBAC0) bei fast allen Geräten.",
+        "es": "47808 (0xBAC0) en casi todos los equipos."
       },
       "required": false,
-      "default": 300,
-      "min": 60,
-      "max": 3600
+      "default": 47808,
+      "min": 1,
+      "max": 65535
+    },
+    {
+      "key": "device_instance",
+      "type": "number",
+      "label": {
+        "en": "Device instance",
+        "fr": "Instance de l'équipement",
+        "de": "Geräteinstanz",
+        "es": "Instancia del equipo"
+      },
+      "description": {
+        "en": "Empty: read from the device. Enter it if the device does not give it (or behind a gateway serving several devices).",
+        "fr": "Vide : lue sur l'équipement. Saisissez-la si l'équipement ne la donne pas (ou derrière une passerelle qui sert plusieurs équipements).",
+        "de": "Leer: vom Gerät gelesen. Gib sie ein, wenn das Gerät sie nicht nennt (oder hinter einem Gateway mit mehreren Geräten).",
+        "es": "Vacío: se lee en el equipo. Introdúzcala si el equipo no la indica (o detrás de una pasarela que sirve varios equipos)."
+      },
+      "required": false,
+      "min": 0,
+      "max": 4194302
+    },
+    {
+      "key": "objects_section",
+      "type": "section",
+      "label": {
+        "en": "Objects",
+        "fr": "Objets",
+        "de": "Objekte",
+        "es": "Objetos"
+      },
+      "description": {
+        "en": "Up to 100 objects. Writing a wrong object can stop or damage an installation: declare \"write\" only what Gladys must change.",
+        "fr": "Jusqu'à 100 objets. Écrire un mauvais objet peut arrêter ou abîmer une installation : ne déclarez « write » que ce que Gladys doit modifier.",
+        "de": "Bis zu 100 Objekte. Ein falsches Objekt zu schreiben kann eine Anlage stoppen oder beschädigen: Deklariere nur als „write“, was Gladys ändern muss.",
+        "es": "Hasta 100 objetos. Escribir un objeto equivocado puede detener o dañar una instalación: declare «write» solo lo que Gladys deba cambiar."
+      }
+    },
+    {
+      "key": "objects",
+      "type": "string",
+      "label": {
+        "en": "Objects",
+        "fr": "Objets",
+        "de": "Objekte",
+        "es": "Objetos"
+      },
+      "description": {
+        "en": "Entries separated by semicolons: Name: type:instance, then kind, write and options. Types: analog-input (ai), analog-output (ao), analog-value (av), binary-input/output/value (bi, bo, bv), multi-state-input/output/value (msi, mso, msv). Kinds: temperature, humidity, pressure, co2, illuminance, power, energy, voltage, current, volume, duration, value, setpoint, binary, switch, state, text (default: from the BACnet units). Options: scale= offset= unit= min= max= precision=.",
+        "fr": "Entrées séparées par des points-virgules : Nom: type:instance, puis nature, write et options. Types : analog-input (ai), analog-output (ao), analog-value (av), binary-input/output/value (bi, bo, bv), multi-state-input/output/value (msi, mso, msv). Natures : temperature, humidity, pressure, co2, illuminance, power, energy, voltage, current, volume, duration, value, setpoint, binary, switch, state, text (par défaut : selon les unités BACnet). Options : scale= offset= unit= min= max= precision=.",
+        "de": "Einträge durch Semikolons getrennt: Name: Typ:Instanz, dann Art, write und Optionen. Typen: analog-input (ai), analog-output (ao), analog-value (av), binary-input/output/value (bi, bo, bv), multi-state-input/output/value (msi, mso, msv). Arten: temperature, humidity, pressure, co2, illuminance, power, energy, voltage, current, volume, duration, value, setpoint, binary, switch, state, text (Standard: nach den BACnet-Einheiten). Optionen: scale= offset= unit= min= max= precision=.",
+        "es": "Entradas separadas por punto y coma: Nombre: tipo:instancia, luego tipo de valor, write y opciones. Tipos: analog-input (ai), analog-output (ao), analog-value (av), binary-input/output/value (bi, bo, bv), multi-state-input/output/value (msi, mso, msv). Tipos de valor: temperature, humidity, pressure, co2, illuminance, power, energy, voltage, current, volume, duration, value, setpoint, binary, switch, state, text (por defecto: según las unidades BACnet). Opciones: scale= offset= unit= min= max= precision=."
+      },
+      "placeholder": {
+        "en": "Supply: ai:1; Fan: bo:2 switch; Mode: msv:1 text",
+        "fr": "Soufflage: ai:1; Ventilateur: bo:2 switch; Mode: msv:1 text",
+        "de": "Zuluft: ai:1; Lüfter: bo:2 switch; Modus: msv:1 text",
+        "es": "Impulsión: ai:1; Ventilador: bo:2 switch; Modo: msv:1 text"
+      },
+      "required": false
+    },
+    {
+      "key": "interval",
+      "type": "select",
+      "label": {
+        "en": "Reading interval",
+        "fr": "Intervalle de lecture",
+        "de": "Leseintervall",
+        "es": "Intervalo de lectura"
+      },
+      "description": {
+        "en": "How often the objects are read. Gladys accepts 300 values a minute: with many objects, they are read less often.",
+        "fr": "Fréquence de lecture des objets. Gladys accepte 300 valeurs par minute : avec beaucoup d'objets, ils sont lus moins souvent.",
+        "de": "Wie oft die Objekte gelesen werden. Gladys nimmt 300 Werte pro Minute an: Bei vielen Objekten werden sie seltener gelesen.",
+        "es": "Frecuencia de lectura de los objetos. Gladys acepta 300 valores por minuto: con muchos objetos, se leen con menos frecuencia."
+      },
+      "required": false,
+      "default": "30",
+      "options": [
+        {
+          "value": "10",
+          "label": {
+            "en": "10 seconds",
+            "fr": "10 secondes",
+            "de": "10 Sekunden",
+            "es": "10 segundos"
+          }
+        },
+        {
+          "value": "30",
+          "label": {
+            "en": "30 seconds",
+            "fr": "30 secondes",
+            "de": "30 Sekunden",
+            "es": "30 segundos"
+          }
+        },
+        {
+          "value": "60",
+          "label": {
+            "en": "1 minute",
+            "fr": "1 minute",
+            "de": "1 Minute",
+            "es": "1 minuto"
+          }
+        },
+        {
+          "value": "300",
+          "label": {
+            "en": "5 minutes",
+            "fr": "5 minutes",
+            "de": "5 Minuten",
+            "es": "5 minutos"
+          }
+        }
+      ]
+    },
+    {
+      "key": "write_section",
+      "type": "section",
+      "label": {
+        "en": "Writing",
+        "fr": "Écriture",
+        "de": "Schreiben",
+        "es": "Escritura"
+      },
+      "description": {
+        "en": "BACnet commands outputs and values through 16 priorities: 1 is the highest (life safety), 16 the lowest. A value written at a priority stays until it is released.",
+        "fr": "BACnet commande sorties et valeurs par 16 priorités : 1 est la plus forte (sécurité des personnes), 16 la plus faible. Une valeur écrite à une priorité reste jusqu'à ce qu'elle soit relâchée.",
+        "de": "BACnet steuert Ausgänge und Werte über 16 Prioritäten: 1 ist die höchste (Personenschutz), 16 die niedrigste. Ein mit einer Priorität geschriebener Wert bleibt, bis er freigegeben wird.",
+        "es": "BACnet controla salidas y valores mediante 16 prioridades: 1 es la más alta (seguridad de las personas), 16 la más baja. Un valor escrito con una prioridad permanece hasta que se libera."
+      }
+    },
+    {
+      "key": "allow_write",
+      "type": "boolean",
+      "label": {
+        "en": "Allow writing",
+        "fr": "Autoriser l'écriture",
+        "de": "Schreiben erlauben",
+        "es": "Permitir la escritura"
+      },
+      "description": {
+        "en": "Off by default. When on, only the objects declared \"write\" (or switch, setpoint) can be changed from Gladys, and only if the device allows it.",
+        "fr": "Désactivée par défaut. Activée, seuls les objets déclarés « write » (ou switch, setpoint) peuvent être modifiés depuis Gladys, et seulement si l'équipement l'autorise.",
+        "de": "Standardmäßig aus. Wenn aktiv, können nur die als „write“ (oder switch, setpoint) deklarierten Objekte aus Gladys geändert werden, und nur wenn das Gerät es erlaubt.",
+        "es": "Desactivada por defecto. Activada, solo los objetos declarados «write» (o switch, setpoint) pueden modificarse desde Gladys, y solo si el equipo lo permite."
+      },
+      "required": false,
+      "default": false
+    },
+    {
+      "key": "write_priority",
+      "type": "number",
+      "label": {
+        "en": "Write priority",
+        "fr": "Priorité d'écriture",
+        "de": "Schreibpriorität",
+        "es": "Prioridad de escritura"
+      },
+      "description": {
+        "en": "1 to 16; 8 (manual operator) by default. Avoid 1 to 5, kept for safety functions.",
+        "fr": "1 à 16 ; 8 (opérateur manuel) par défaut. Évitez 1 à 5, réservées aux fonctions de sécurité.",
+        "de": "1 bis 16; standardmäßig 8 (manueller Bediener). Vermeide 1 bis 5, die Sicherheitsfunktionen vorbehalten sind.",
+        "es": "1 a 16; 8 (operador manual) por defecto. Evite 1 a 5, reservadas a las funciones de seguridad."
+      },
+      "required": false,
+      "default": 8,
+      "min": 1,
+      "max": 16
     }
   ],
   "actions": [
     {
-      "key": "test_weather",
-      "label": { "en": "Test the weather provider", "fr": "Tester le fournisseur météo" },
-      "timeout_seconds": 30
+      "key": "list_objects",
+      "label": {
+        "en": "List the objects",
+        "fr": "Lister les objets",
+        "de": "Objekte auflisten",
+        "es": "Listar los objetos"
+      },
+      "description": {
+        "en": "Reads the object list of the device and gives the analog, binary and multi-state objects (60 at most) with their name, ready to copy into the Objects field.",
+        "fr": "Lit la liste d'objets de l'équipement et donne les objets analogiques, binaires et multi-états (60 au plus) avec leur nom, prêts à copier dans le champ Objets.",
+        "de": "Liest die Objektliste des Geräts und gibt die analogen, binären und Multi-State-Objekte (höchstens 60) mit Namen aus, bereit zum Kopieren ins Feld Objekte.",
+        "es": "Lee la lista de objetos del equipo y da los objetos analógicos, binarios y multiestado (60 como máximo) con su nombre, listos para copiar en el campo Objetos."
+      },
+      "timeout_seconds": 60
     },
     {
-      "key": "identify",
-      "label": { "en": "Identify a device", "fr": "Identifier un appareil" },
+      "key": "check_config",
+      "label": {
+        "en": "Check the configuration",
+        "fr": "Vérifier la configuration",
+        "de": "Konfiguration prüfen",
+        "es": "Comprobar la configuración"
+      },
+      "description": {
+        "en": "Says whether the device answers, and lists the mistakes entry by entry.",
+        "fr": "Dit si l'équipement répond, et liste les erreurs entrée par entrée.",
+        "de": "Sagt, ob das Gerät antwortet, und listet die Fehler Eintrag für Eintrag auf.",
+        "es": "Indica si el equipo responde y enumera los errores entrada por entrada."
+      },
+      "timeout_seconds": 15
+    },
+    {
+      "key": "write_value",
+      "label": {
+        "en": "Write a value",
+        "fr": "Écrire une valeur",
+        "de": "Wert schreiben",
+        "es": "Escribir un valor"
+      },
+      "description": {
+        "en": "Writes the present value of an object declared \"write\", once writing is allowed.",
+        "fr": "Écrit la valeur actuelle d'un objet déclaré « write », une fois l'écriture autorisée.",
+        "de": "Schreibt den aktuellen Wert eines als „write“ deklarierten Objekts, sobald Schreiben erlaubt ist.",
+        "es": "Escribe el valor actual de un objeto declarado «write», una vez permitida la escritura."
+      },
+      "timeout_seconds": 20,
       "fields": [
         {
-          "key": "device",
-          "type": "select",
-          "source": "devices",
-          "label": { "en": "Device", "fr": "Appareil" },
+          "key": "object",
+          "type": "string",
+          "label": {
+            "en": "Object (name or identifier)",
+            "fr": "Objet (nom ou identifiant)",
+            "de": "Objekt (Name oder Kennung)",
+            "es": "Objeto (nombre o identificador)"
+          },
+          "description": {
+            "en": "A declared object: its name, or its identifier such as av:3.",
+            "fr": "Un objet déclaré : son nom, ou son identifiant comme av:3.",
+            "de": "Ein deklariertes Objekt: sein Name oder seine Kennung wie av:3.",
+            "es": "Un objeto declarado: su nombre o su identificador como av:3."
+          },
+          "placeholder": {
+            "en": "e.g. Supply air setpoint",
+            "fr": "ex. Consigne soufflage",
+            "de": "z. B. Zuluft-Sollwert",
+            "es": "p. ej. Consigna de impulsión"
+          },
           "required": true
+        },
+        {
+          "key": "value",
+          "type": "string",
+          "label": {
+            "en": "Value",
+            "fr": "Valeur",
+            "de": "Wert",
+            "es": "Valor"
+          },
+          "description": {
+            "en": "A number, 0 / 1 (on / off) for a binary object, a state number or text for a multi-state object.",
+            "fr": "Un nombre, 0 / 1 (on / off) pour un objet binaire, un numéro ou un texte d'état pour un objet multi-état.",
+            "de": "Eine Zahl, 0 / 1 (on / off) für ein binäres Objekt, eine Zustandsnummer oder ein Zustandstext für ein Multi-State-Objekt.",
+            "es": "Un número, 0 / 1 (on / off) para un objeto binario, un número o texto de estado para un objeto multiestado."
+          },
+          "required": true
+        },
+        {
+          "key": "priority",
+          "type": "string",
+          "label": {
+            "en": "Priority (optional)",
+            "fr": "Priorité (facultatif)",
+            "de": "Priorität (optional)",
+            "es": "Prioridad (opcional)"
+          },
+          "description": {
+            "en": "1 to 16. Empty: the priority of the configuration.",
+            "fr": "1 à 16. Vide : la priorité de la configuration.",
+            "de": "1 bis 16. Leer: die Priorität der Konfiguration.",
+            "es": "1 a 16. Vacío: la prioridad de la configuración."
+          },
+          "placeholder": {
+            "en": "e.g. 8",
+            "fr": "ex. 8",
+            "de": "z. B. 8",
+            "es": "p. ej. 8"
+          },
+          "required": false
+        }
+      ]
+    },
+    {
+      "key": "release_value",
+      "label": {
+        "en": "Release a priority",
+        "fr": "Relâcher une priorité",
+        "de": "Priorität freigeben",
+        "es": "Liberar una prioridad"
+      },
+      "description": {
+        "en": "Removes the value Gladys wrote at a priority: the device goes back to the next priority, or to its default value.",
+        "fr": "Retire la valeur que Gladys a écrite à une priorité : l'équipement revient à la priorité suivante, ou à sa valeur par défaut.",
+        "de": "Entfernt den Wert, den Gladys mit einer Priorität geschrieben hat: Das Gerät kehrt zur nächsten Priorität oder zu seinem Standardwert zurück.",
+        "es": "Retira el valor que Gladys escribió con una prioridad: el equipo vuelve a la prioridad siguiente o a su valor por defecto."
+      },
+      "timeout_seconds": 20,
+      "fields": [
+        {
+          "key": "object",
+          "type": "string",
+          "label": {
+            "en": "Object (name or identifier)",
+            "fr": "Objet (nom ou identifiant)",
+            "de": "Objekt (Name oder Kennung)",
+            "es": "Objeto (nombre o identificador)"
+          },
+          "description": {
+            "en": "A declared object: its name, or its identifier such as av:3.",
+            "fr": "Un objet déclaré : son nom, ou son identifiant comme av:3.",
+            "de": "Ein deklariertes Objekt: sein Name oder seine Kennung wie av:3.",
+            "es": "Un objeto declarado: su nombre o su identificador como av:3."
+          },
+          "placeholder": {
+            "en": "e.g. Supply air setpoint",
+            "fr": "ex. Consigne soufflage",
+            "de": "z. B. Zuluft-Sollwert",
+            "es": "p. ej. Consigna de impulsión"
+          },
+          "required": true
+        },
+        {
+          "key": "priority",
+          "type": "string",
+          "label": {
+            "en": "Priority (optional)",
+            "fr": "Priorité (facultatif)",
+            "de": "Priorität (optional)",
+            "es": "Prioridad (opcional)"
+          },
+          "description": {
+            "en": "1 to 16. Empty: the priority of the configuration.",
+            "fr": "1 à 16. Vide : la priorité de la configuration.",
+            "de": "1 bis 16. Leer: die Priorität der Konfiguration.",
+            "es": "1 a 16. Vacío: la prioridad de la configuración."
+          },
+          "placeholder": {
+            "en": "e.g. 8",
+            "fr": "ex. 8",
+            "de": "z. B. 8",
+            "es": "p. ej. 8"
+          },
+          "required": false
         }
       ]
     }
   ],
   "scene_triggers": [
     {
-      "key": "motion_detected",
-      "label": { "en": "Motion detected", "fr": "Mouvement détecté" },
+      "key": "device_disconnected",
+      "label": {
+        "en": "The BACnet device is lost",
+        "fr": "L'équipement BACnet est perdu",
+        "de": "Das BACnet-Gerät ist weg",
+        "es": "Se pierde el equipo BACnet"
+      },
       "description": {
-        "en": "A demo motion sensor saw a person or an animal move.",
-        "fr": "Un détecteur de démonstration a vu bouger une personne ou un animal."
+        "en": "The device stopped answering (powered off, network cut, BACnet/IP off).",
+        "fr": "L'équipement ne répond plus (éteint, réseau coupé, BACnet/IP désactivé).",
+        "de": "Das Gerät antwortet nicht mehr (aus, Netzwerk getrennt, BACnet/IP aus).",
+        "es": "El equipo ya no responde (apagado, red cortada, BACnet/IP desactivado)."
       },
       "fields": [
         {
           "key": "device",
           "type": "select",
           "source": "devices",
-          "label": { "en": "Sensor", "fr": "Détecteur" }
+          "label": {
+            "en": "Device (empty: any)",
+            "fr": "Équipement (vide : n'importe lequel)",
+            "de": "Gerät (leer: beliebig)",
+            "es": "Equipo (vacío: cualquiera)"
+          }
+        }
+      ],
+      "variables": [
+        {
+          "key": "device_name",
+          "type": "string",
+          "label": {
+            "en": "Device name",
+            "fr": "Nom de l'équipement",
+            "de": "Gerätename",
+            "es": "Nombre del equipo"
+          }
         },
         {
-          "key": "target",
-          "type": "multi_select",
-          "label": { "en": "What moved", "fr": "Ce qui a bougé" },
+          "key": "error",
+          "type": "string",
+          "label": {
+            "en": "Error",
+            "fr": "Erreur",
+            "de": "Fehler",
+            "es": "Error"
+          }
+        }
+      ]
+    },
+    {
+      "key": "device_reconnected",
+      "label": {
+        "en": "The BACnet device is back",
+        "fr": "L'équipement BACnet est revenu",
+        "de": "Das BACnet-Gerät ist zurück",
+        "es": "El equipo BACnet ha vuelto"
+      },
+      "description": {
+        "en": "The device answers again after a loss.",
+        "fr": "L'équipement répond de nouveau après une perte.",
+        "de": "Das Gerät antwortet nach einem Ausfall wieder.",
+        "es": "El equipo vuelve a responder tras una pérdida."
+      },
+      "fields": [
+        {
+          "key": "device",
+          "type": "select",
+          "source": "devices",
+          "label": {
+            "en": "Device (empty: any)",
+            "fr": "Équipement (vide : n'importe lequel)",
+            "de": "Gerät (leer: beliebig)",
+            "es": "Equipo (vacío: cualquiera)"
+          }
+        }
+      ],
+      "variables": [
+        {
+          "key": "device_name",
+          "type": "string",
+          "label": {
+            "en": "Device name",
+            "fr": "Nom de l'équipement",
+            "de": "Gerätename",
+            "es": "Nombre del equipo"
+          }
+        }
+      ]
+    },
+    {
+      "key": "object_alarm",
+      "label": {
+        "en": "A BACnet object goes into alarm",
+        "fr": "Un objet BACnet passe en alarme",
+        "de": "Ein BACnet-Objekt geht in Alarm",
+        "es": "Un objeto BACnet pasa a alarma"
+      },
+      "description": {
+        "en": "The device flags an object in alarm or in fault (statusFlags), once until it clears.",
+        "fr": "L'équipement signale un objet en alarme ou en défaut (statusFlags), une fois jusqu'à sa disparition.",
+        "de": "Das Gerät meldet ein Objekt in Alarm oder Störung (statusFlags), einmal bis zur Behebung.",
+        "es": "El equipo señala un objeto en alarma o en fallo (statusFlags), una vez hasta que desaparece."
+      },
+      "fields": [
+        {
+          "key": "device",
+          "type": "select",
+          "source": "devices",
+          "label": {
+            "en": "Device (empty: any)",
+            "fr": "Équipement (vide : n'importe lequel)",
+            "de": "Gerät (leer: beliebig)",
+            "es": "Equipo (vacío: cualquiera)"
+          }
+        },
+        {
+          "key": "flag",
+          "type": "select",
+          "label": {
+            "en": "Flag (empty: any)",
+            "fr": "Indicateur (vide : n'importe lequel)",
+            "de": "Kennzeichen (leer: beliebig)",
+            "es": "Indicador (vacío: cualquiera)"
+          },
           "options": [
-            { "value": "person", "label": { "en": "Person", "fr": "Personne" } },
-            { "value": "animal", "label": { "en": "Animal", "fr": "Animal" } }
+            {
+              "value": "in-alarm",
+              "label": {
+                "en": "In alarm",
+                "fr": "En alarme",
+                "de": "In Alarm",
+                "es": "En alarma"
+              }
+            },
+            {
+              "value": "fault",
+              "label": {
+                "en": "Fault",
+                "fr": "Défaut",
+                "de": "Störung",
+                "es": "Fallo"
+              }
+            }
           ]
         }
       ],
       "variables": [
         {
-          "key": "target",
+          "key": "device_name",
           "type": "string",
-          "label": { "en": "What moved", "fr": "Ce qui a bougé" }
+          "label": {
+            "en": "Device name",
+            "fr": "Nom de l'équipement",
+            "de": "Gerätename",
+            "es": "Nombre del equipo"
+          }
+        },
+        {
+          "key": "object_name",
+          "type": "string",
+          "label": {
+            "en": "Object name",
+            "fr": "Nom de l'objet",
+            "de": "Name des Objekts",
+            "es": "Nombre del objeto"
+          }
+        },
+        {
+          "key": "flag",
+          "type": "string",
+          "label": {
+            "en": "Flag",
+            "fr": "Indicateur",
+            "de": "Kennzeichen",
+            "es": "Indicador"
+          }
         }
       ]
     }
   ],
   "scene_actions": [
     {
-      "key": "identify_device",
-      "label": { "en": "Identify a device", "fr": "Identifier un appareil" },
-      "description": {
-        "en": "Make a device signal itself (the demo light blinks).",
-        "fr": "Fait se signaler un appareil (la lampe de démonstration clignote)."
+      "key": "write_value",
+      "label": {
+        "en": "Write a BACnet object",
+        "fr": "Écrire un objet BACnet",
+        "de": "BACnet-Objekt schreiben",
+        "es": "Escribir un objeto BACnet"
       },
-      "timeout_seconds": 15,
+      "description": {
+        "en": "Writes a value to an object declared \"write\", once writing is allowed.",
+        "fr": "Écrit une valeur dans un objet déclaré « write », une fois l'écriture autorisée.",
+        "de": "Schreibt einen Wert in ein als „write“ deklariertes Objekt, sobald Schreiben erlaubt ist.",
+        "es": "Escribe un valor en un objeto declarado «write», una vez permitida la escritura."
+      },
+      "timeout_seconds": 20,
       "fields": [
         {
-          "key": "device",
-          "type": "select",
-          "source": "devices",
-          "label": { "en": "Device", "fr": "Appareil" },
+          "key": "object",
+          "type": "string",
+          "label": {
+            "en": "Object (name or identifier)",
+            "fr": "Objet (nom ou identifiant)",
+            "de": "Objekt (Name oder Kennung)",
+            "es": "Objeto (nombre o identificador)"
+          },
+          "description": {
+            "en": "A declared object: its name, or its identifier such as av:3.",
+            "fr": "Un objet déclaré : son nom, ou son identifiant comme av:3.",
+            "de": "Ein deklariertes Objekt: sein Name oder seine Kennung wie av:3.",
+            "es": "Un objeto declarado: su nombre o su identificador como av:3."
+          },
+          "placeholder": {
+            "en": "e.g. Supply air setpoint",
+            "fr": "ex. Consigne soufflage",
+            "de": "z. B. Zuluft-Sollwert",
+            "es": "p. ej. Consigna de impulsión"
+          },
           "required": true
-        }
-      ],
-      "outputs": [
+        },
         {
-          "key": "signalled",
-          "type": "boolean",
-          "label": { "en": "Device signalled", "fr": "Appareil signalé" }
+          "key": "value",
+          "type": "string",
+          "label": {
+            "en": "Value",
+            "fr": "Valeur",
+            "de": "Wert",
+            "es": "Valor"
+          },
+          "description": {
+            "en": "A number, 0 / 1 (on / off) for a binary object, a state number or text for a multi-state object.",
+            "fr": "Un nombre, 0 / 1 (on / off) pour un objet binaire, un numéro ou un texte d'état pour un objet multi-état.",
+            "de": "Eine Zahl, 0 / 1 (on / off) für ein binäres Objekt, eine Zustandsnummer oder ein Zustandstext für ein Multi-State-Objekt.",
+            "es": "Un número, 0 / 1 (on / off) para un objeto binario, un número o texto de estado para un objeto multiestado."
+          },
+          "required": true
+        },
+        {
+          "key": "priority",
+          "type": "string",
+          "label": {
+            "en": "Priority (optional)",
+            "fr": "Priorité (facultatif)",
+            "de": "Priorität (optional)",
+            "es": "Prioridad (opcional)"
+          },
+          "description": {
+            "en": "1 to 16. Empty: the priority of the configuration.",
+            "fr": "1 à 16. Vide : la priorité de la configuration.",
+            "de": "1 bis 16. Leer: die Priorität der Konfiguration.",
+            "es": "1 a 16. Vacío: la prioridad de la configuración."
+          },
+          "placeholder": {
+            "en": "e.g. 8",
+            "fr": "ex. 8",
+            "de": "z. B. 8",
+            "es": "p. ej. 8"
+          },
+          "required": false
+        }
+      ]
+    },
+    {
+      "key": "release_value",
+      "label": {
+        "en": "Release a BACnet priority",
+        "fr": "Relâcher une priorité BACnet",
+        "de": "BACnet-Priorität freigeben",
+        "es": "Liberar una prioridad BACnet"
+      },
+      "description": {
+        "en": "Removes the value written at a priority of an object declared \"write\".",
+        "fr": "Retire la valeur écrite à une priorité d'un objet déclaré « write ».",
+        "de": "Entfernt den mit einer Priorität geschriebenen Wert eines als „write“ deklarierten Objekts.",
+        "es": "Retira el valor escrito con una prioridad de un objeto declarado «write»."
+      },
+      "timeout_seconds": 20,
+      "fields": [
+        {
+          "key": "object",
+          "type": "string",
+          "label": {
+            "en": "Object (name or identifier)",
+            "fr": "Objet (nom ou identifiant)",
+            "de": "Objekt (Name oder Kennung)",
+            "es": "Objeto (nombre o identificador)"
+          },
+          "description": {
+            "en": "A declared object: its name, or its identifier such as av:3.",
+            "fr": "Un objet déclaré : son nom, ou son identifiant comme av:3.",
+            "de": "Ein deklariertes Objekt: sein Name oder seine Kennung wie av:3.",
+            "es": "Un objeto declarado: su nombre o su identificador como av:3."
+          },
+          "placeholder": {
+            "en": "e.g. Supply air setpoint",
+            "fr": "ex. Consigne soufflage",
+            "de": "z. B. Zuluft-Sollwert",
+            "es": "p. ej. Consigna de impulsión"
+          },
+          "required": true
+        },
+        {
+          "key": "priority",
+          "type": "string",
+          "label": {
+            "en": "Priority (optional)",
+            "fr": "Priorité (facultatif)",
+            "de": "Priorität (optional)",
+            "es": "Prioridad (opcional)"
+          },
+          "description": {
+            "en": "1 to 16. Empty: the priority of the configuration.",
+            "fr": "1 à 16. Vide : la priorité de la configuration.",
+            "de": "1 bis 16. Leer: die Priorität der Konfiguration.",
+            "es": "1 a 16. Vacío: la prioridad de la configuración."
+          },
+          "placeholder": {
+            "en": "e.g. 8",
+            "fr": "ex. 8",
+            "de": "z. B. 8",
+            "es": "p. ej. 8"
+          },
+          "required": false
         }
       ]
     }
   ],
   "widgets": [
     {
-      "key": "demo_status",
-      "label": { "en": "Demo status", "fr": "État de la démo" },
-      "description": {
-        "en": "Live temperature and plug power, plug connection and observed location.",
-        "fr": "Température et puissance en direct, connexion de la prise, position observée."
+      "key": "device_overview",
+      "label": {
+        "en": "BACnet device",
+        "fr": "Équipement BACnet",
+        "de": "BACnet-Gerät",
+        "es": "Equipo BACnet"
       },
-      "icon": "activity",
-      "action_timeout_seconds": 15
+      "description": {
+        "en": "The first values of the device, its alarms and the health of its link.",
+        "fr": "Les premières valeurs de l'équipement, ses alarmes et l'état de sa liaison.",
+        "de": "Die ersten Werte des Geräts, seine Alarme und der Zustand seiner Verbindung.",
+        "es": "Los primeros valores del equipo, sus alarmas y el estado de su enlace."
+      },
+      "icon": "cpu",
+      "settings": [
+        {
+          "key": "device",
+          "type": "select",
+          "source": "devices",
+          "required": true,
+          "label": {
+            "en": "Device",
+            "fr": "Équipement",
+            "de": "Gerät",
+            "es": "Equipo"
+          }
+        },
+        {
+          "key": "hide_status",
+          "type": "boolean",
+          "label": {
+            "en": "Hide the link status",
+            "fr": "Masquer l'état de la liaison",
+            "de": "Verbindungsstatus ausblenden",
+            "es": "Ocultar el estado del enlace"
+          }
+        }
+      ]
     }
   ]
 }

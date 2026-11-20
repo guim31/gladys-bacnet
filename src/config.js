@@ -1,45 +1,86 @@
 // -----------------------------------------------------------------------------
-// Integration configuration.
-//
-// The configuration is filled in by the user in Gladys, from the `config_schema`
-// declared in `gladys-assistant-integration.json`. The SDK fetches it for you
-// (`gladys.getConfig()`) and notifies you of every change through
-// `gladys.onConfigUpdated()`.
-//
-// This module only provides defaults and normalizes the received object, so the
-// rest of the code never has to deal with `undefined`.
+// Integration configuration: one BACnet/IP device (address, port, instance),
+// the objects to read, the polling interval, and the writes. DEFAULT_CONFIG
+// mirrors the `default` values of the manifest (test/manifest.test.js).
 // -----------------------------------------------------------------------------
 
-// Defaults: they MUST stay consistent with the `default` values declared in the
-// `config_schema` of the manifest.
+import { isIP } from 'node:net';
+import { DEFAULT_LANGUAGE, LANGUAGES } from './i18n.js';
+import { MAX_INSTANCE } from './objects.js';
+
+/** Polling intervals offered, in seconds. */
+export const INTERVALS = ['10', '30', '60', '300'];
+
 export const DEFAULT_CONFIG = {
-  latitude: 48.8566, // Paris
-  longitude: 2.3522,
-  unit: 'celsius', // 'celsius' | 'fahrenheit'
-  // Seconds between two reads of the polled sensors. Gladys polls at most once
-  // a minute: slower intervals are applied by skipping polls (see
-  // createPoller in src/devices/index.js).
-  poll_frequency: 300,
-  // Reserved key (NOT in config_schema): because the manifest declares both
-  // 'local' and 'cloud' in its `transports` field, Gladys shows a standard
-  // "Prefer the local connection" toggle and sends the user's choice here.
-  // Read-only for the integration; defaults to true.
-  GLADYS_PREFER_LOCAL: true,
+  language: DEFAULT_LANGUAGE,
+  port: 47808,
+  interval: '30',
+  allow_write: false,
+  write_priority: 8,
+};
+
+const integer = (value) => {
+  const text = String(value ?? '').trim();
+  if (text === '') {
+    return null; // Number('') is 0, a real instance
+  }
+  const number = Number(text);
+  return Number.isInteger(number) ? number : null;
 };
 
 /**
- * Merge the user config with the defaults.
+ * Merge the user config with the defaults, with the right types.
  * @param {Record<string, unknown>} raw config returned by the SDK
  */
 export function normalizeConfig(raw = {}) {
-  return {
-    ...DEFAULT_CONFIG,
-    ...raw,
-    // Force the types: config may arrive as strings from a form.
-    latitude: Number(raw.latitude ?? DEFAULT_CONFIG.latitude),
-    longitude: Number(raw.longitude ?? DEFAULT_CONFIG.longitude),
-    poll_frequency: Number(raw.poll_frequency ?? DEFAULT_CONFIG.poll_frequency),
-    // The preference is a boolean; anything but an explicit false means true.
-    GLADYS_PREFER_LOCAL: raw.GLADYS_PREFER_LOCAL !== false,
-  };
+  const config = { ...DEFAULT_CONFIG };
+  for (const [key, value] of Object.entries(raw ?? {})) {
+    // An emptied field arrives as null or "": keep the default.
+    if (value !== null && value !== undefined && value !== '') {
+      config[key] = value;
+    }
+  }
+  if (!LANGUAGES.includes(config.language)) {
+    config.language = DEFAULT_LANGUAGE;
+  }
+  config.interval = String(config.interval);
+  if (!INTERVALS.includes(config.interval)) {
+    config.interval = DEFAULT_CONFIG.interval;
+  }
+  config.allow_write = config.allow_write === true || config.allow_write === 'true';
+  const port = integer(config.port);
+  config.port = port !== null && port >= 1 && port <= 65535 ? port : DEFAULT_CONFIG.port;
+  const priority = integer(config.write_priority);
+  config.write_priority =
+    priority !== null && priority >= 1 && priority <= 16 ? priority : DEFAULT_CONFIG.write_priority;
+  const instance = integer(config.device_instance);
+  config.device_instance =
+    instance !== null && instance >= 0 && instance <= MAX_INSTANCE ? instance : null;
+  config.badInstance =
+    config.device_instance === null && String(raw?.device_instance ?? '').trim() !== '';
+  config.address = String(config.address ?? '').trim();
+  config.objects = String(config.objects ?? '');
+  return config;
+}
+
+/**
+ * Check the address: an IPv4 address (or a host name), and an optional
+ * ":port" that overrides the port field.
+ * @returns {{ host: string, port: number } | { error: string }}
+ */
+export function parseAddress(text, defaultPort = 47808) {
+  if (!text) {
+    return { error: 'noAddress' };
+  }
+  const match = text.match(/^([^:\s/]+)(?::(\d{1,5}))?$/);
+  if (!match) {
+    return { error: 'badAddress' };
+  }
+  const host = match[1].toLowerCase();
+  const port = match[2] ? Number(match[2]) : defaultPort;
+  const hostOk = isIP(host) === 4 || /^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9-]+)*$/.test(host);
+  if (!hostOk || port < 1 || port > 65535) {
+    return { error: 'badAddress' };
+  }
+  return { host, port };
 }
