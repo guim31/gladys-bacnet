@@ -8,6 +8,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createFakeGladys } from '@gladysassistant/integration-sdk/testing';
 import { registerHandlers } from '../src/app.js';
+import { normalizeConfig } from '../src/config.js';
 import { MemoryStore } from '../src/store.js';
 import { createFakeDevice, flagsOf } from './helpers/fakeBacnet.js';
 import { ADDRESS, captureLogs, createWorld } from './helpers/world.js';
@@ -460,6 +461,61 @@ test('an object already in alarm does not fire the trigger again after a save', 
     await world.poll();
     const alarms = world.fake.sceneEvents.filter((e) => e.key === 'object_alarm');
     assert.equal(alarms.length, 1);
+  } finally {
+    await world.stop();
+  }
+});
+
+test('a configuration that fails does not block the next one', async () => {
+  const world = await createWorld({ fixture: AHU, config: { objects: AHU_OBJECTS } });
+  try {
+    const publish = world.gladys.publishDiscoveredDevices.bind(world.gladys);
+    let fail = true;
+    world.gladys.publishDiscoveredDevices = async (...args) => {
+      if (fail) {
+        fail = false;
+        throw new Error('HTTP 429');
+      }
+      return publish(...args);
+    };
+    await assert.rejects(
+      world.hub.configure(normalizeConfig({ address: ADDRESS, objects: 'ai:1' })),
+    );
+    await world.hub.configure(normalizeConfig({ address: ADDRESS, objects: 'ai:2' }));
+    await world.settle();
+    assert.equal(world.hub.objects[0].key, 'ai-2');
+    assert.ok(world.hub.link, 'polling again');
+    assert.equal(world.hub.status.connected, true);
+  } finally {
+    await world.stop();
+  }
+});
+
+test('a Fahrenheit setpoint is bounded 32 to 212 °F, published and written', async () => {
+  const fixture = structuredClone(AHU);
+  fixture.objects['2:10'][117] = 64; // degrees-fahrenheit
+  const world = await createWorld({ fixture, config: { objects: AHU_OBJECTS, allow_write: true } });
+  try {
+    const setpoint = world.feature('Setpoint');
+    assert.deepEqual([setpoint.unit, setpoint.min, setpoint.max], ['fahrenheit', 32, 212]);
+    await world.fake.setValue(world.device, setpoint, 130);
+    assert.equal(world.bacnet.writes.at(-1).value, 130);
+  } finally {
+    await world.stop();
+  }
+});
+
+test('the alarms of another device are its own', async () => {
+  const world = await createWorld({
+    fixture: AHU,
+    config: { objects: AHU_OBJECTS },
+    before: (device) => device.set('3:5', 111, flagsOf(1)),
+  });
+  try {
+    await world.fake.configUpdated({ address: '192.0.2.11', objects: AHU_OBJECTS });
+    await world.settle();
+    const alarms = world.fake.sceneEvents.filter((e) => e.key === 'object_alarm');
+    assert.equal(alarms.length, 2, 'the same object on a new address fires again');
   } finally {
     await world.stop();
   }

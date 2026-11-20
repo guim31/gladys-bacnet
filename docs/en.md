@@ -110,7 +110,7 @@ the value directly and have nothing to release.
 
 From the dashboard, only `switch` and `setpoint` objects are controls (an
 on/off input and a target temperature, never a voice-controlled switch or
-thermostat). Every other declared object is written with the actions.
+thermostat). Every other declared object is written with the actions. A setpoint without `min=` and `max=` is held to 0–100 °C (32–212 °F).
 
 ## Actions
 

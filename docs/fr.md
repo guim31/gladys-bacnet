@@ -121,7 +121,7 @@ directement et n'a rien à relâcher.
 Depuis le tableau de bord, seuls les objets `switch` et `setpoint` sont des
 commandes (une entrée marche/arrêt et une température cible, jamais un
 interrupteur ou un thermostat pilotable à la voix). Tout autre objet déclaré
-s'écrit avec les actions.
+s'écrit avec les actions. Une consigne sans `min=` ni `max=` est tenue entre 0 et 100 °C (32 et 212 °F).
 
 ## Actions
 

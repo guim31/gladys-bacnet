@@ -116,7 +116,7 @@ liberar.
 Desde el panel, solo los objetos `switch` y `setpoint` son controles (una
 entrada de encendido/apagado y una temperatura objetivo, nunca un interruptor o
 un termostato controlable por voz). Cualquier otro objeto declarado se escribe
-con las acciones.
+con las acciones. Una consigna sin `min=` ni `max=` se mantiene entre 0 y 100 °C (32 y 212 °F).
 
 ## Acciones
 

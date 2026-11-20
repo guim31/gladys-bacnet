@@ -116,7 +116,7 @@ und haben nichts freizugeben.
 Im Dashboard sind nur `switch`- und `setpoint`-Objekte Bedienelemente (ein
 Ein/Aus-Eingang und eine Zieltemperatur, nie ein sprachgesteuerter Schalter
 oder Thermostat). Jedes andere deklarierte Objekt wird über die Aktionen
-geschrieben.
+geschrieben. Ein Sollwert ohne `min=` und `max=` bleibt zwischen 0 und 100 °C (32 und 212 °F).
 
 ## Aktionen
 

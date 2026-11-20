@@ -94,8 +94,10 @@ export class BacnetHub {
 
   /** Apply a configuration; two quick saves run one after the other. */
   configure(config) {
-    this.configuring = this.configuring.then(() => this.#configure(config));
-    return this.configuring;
+    // A failed configuration must not block the next ones.
+    const run = this.configuring.catch(() => {}).then(() => this.#configure(config));
+    this.configuring = run;
+    return run;
   }
 
   async #configure(config) {
@@ -162,6 +164,12 @@ export class BacnetHub {
   }
 
   #setInstance(instance) {
+    const owner = `${this.#cacheKey()}/${instance}`;
+    if (owner !== this.alarmOwner) {
+      // Another device: its objects have their own alarms.
+      this.alarmOwner = owner;
+      this.alarmed.clear();
+    }
     this.instance = instance;
     this.ids = this.gladys.externalIds('device', String(instance));
   }
@@ -529,6 +537,16 @@ export class BacnetHub {
     );
   }
 
+  /** Declared bounds, else those of the kind (a °F setpoint: 32 to 212). */
+  boundsOf(object) {
+    const kind = KINDS[object.resolvedKind];
+    const fahrenheit = object.resolvedKind === 'setpoint' && object.publishUnit === 'fahrenheit';
+    return {
+      min: object.min ?? (fahrenheit ? 32 : kind.min),
+      max: object.max ?? (fahrenheit ? 212 : kind.max),
+    };
+  }
+
   /** The objects published as features, with their final names. */
   features() {
     if (!this.ids) {
@@ -540,8 +558,7 @@ export class BacnetHub {
       const kind = KINDS[object.resolvedKind];
       const { unit } = publishedUnit(object.resolvedKind, object.publishUnit);
       const writable = Boolean(kind.writable && object.write && this.config.allow_write);
-      let min = object.min ?? kind.min;
-      let max = object.max ?? kind.max;
+      let { min, max } = this.boundsOf(object);
       if (object.resolvedKind === 'state') {
         max = Math.max(min, object.numberOfStates ?? 1);
       }
@@ -709,8 +726,7 @@ export class BacnetHub {
     if (kind.writable) {
       // A dashboard control or a scene "set value" is held to the bounds the
       // feature was published with: the core never enforces them.
-      target.min ??= kind.min;
-      target.max ??= kind.max;
+      Object.assign(target, this.boundsOf(object));
     }
     const { tag, value, shown } = toWrite(target, input);
     await this.#send(object, { type: tag, value }, priority);
